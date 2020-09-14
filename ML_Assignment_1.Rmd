@@ -1,0 +1,67 @@
+---
+title: "ML_Assignment_1"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+Loading Tech-Sales-Reps.csv into R data frame
+
+```{r}
+MyFile<-read.csv("Tech-Sales-Reps.csv")
+str(MyFile)
+```
+
+Creating frequency table on qualatitive/catagorical data column "Personality"
+```{r}
+FTable<-table(MyFile$Personality)
+FTable
+```
+plotting bar chart out of the 'Personality' qualitative data
+```{r}
+barplot ( FTable , main="Sales Rep personality counts",  xlab = "Personality", ylab ="Counts", col = "blue", border = FALSE)
+```
+Creating graph on Quantitative data on "Salary" column
+
+```{r}
+hist(MyFile$Salary)
+boxplot(MyFile$Salary)
+
+```
+Descriptive Statistics for Quantitative data
+```{r}
+summary(MyFile$Salary)
+```
+
+Creating Scatterplot 
+
+```{r}
+input<-MyFile[,c('Age','Salary')]
+head(input)
+plot(x=input$Age, y=input$Salary, xlab = "Sales Rep Age", ylab = "Salary", 
+        ylim = c(150000,200000),
+   main = "Age vs Salary" )
+```
+
+
+Data Transformation of Salary column into 1000/K representation 
+
+```{r}
+MyFile2<-transform(MyFile, SalaryinK= MyFile$Salary/1000)
+head(MyFile2)
+```
+
+
+
+
+
+
