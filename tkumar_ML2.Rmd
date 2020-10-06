@@ -1,12 +1,14 @@
 ---
 title: "Machine Learning Assignment 2"
 output:
-  html_document:
-    df_print: paged
-    toc: true
+  pdf_document:
+    toc: yes
   html_notebook:
     highlight: textmate
     theme: cerulean
+  html_document:
+    df_print: paged
+    toc: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -17,21 +19,6 @@ dir.create("images")
 ***
 
 # k-NN
-
-This notebook illustrates the code for Classifiers module. We will continue to use the Caret Package. The caret package (short for Classification And REgression Training) is a set of functions that attempt to streamline the process for creating predictive models. The package contains tools for:
-
-* data splitting/partitioning
-* pre-processing
-* feature selection
-* model tuning using resampling 
-
-***
-
-Some code in this package comes from the following reference:
-
-* https://www.dataminingbook.com/book/r-edition
-
-***
 
 Install packages if necessary. Uncomment before running.
 
@@ -44,9 +31,13 @@ library(ISLR)
 
 library(FNN)
 
+#install.packages("dummies")
+library(dummies)
+library(gmodels)
+
 ```
 
-***
+
 Loading the data file and reviewing data structures
 
 ```{r}
@@ -64,144 +55,115 @@ str(UniversalBank1)
 ```
 
 
-## Data Splitting
-
-Assume that we are interested in creating a training and validation set from this dataset. To simplify our illustration, we will restric ourself to the following three variables: Sales, Education, Urban, and use only a small dataset for illustration
-
-* First, we create a dataset with only the required columns. We will use the dplyr package. Install it if necessary
-* Then, we create an index for the training sample.
-* We next create the training dataset
-* We then use the reverse index of the training sample to create the validation set
-
+Creating Dummy Variables
 
 ```{r}
-library(dplyr)
+levels(UniversalBank1$Education)
+dummy_model <- dummyVars(~Education,data=UniversalBank1)
+head(predict(dummy_model,UniversalBank1))
+```
+Creating New Data Frame with the Data variables and doing the Data Normalization
 
+```{r}
+UBank<-dummy.data.frame(UniversalBank1, names = c("Education"), sep=".")
+str(UBank)
+
+norm_model<-preProcess(UBank, method = c('range'))
+UBank_normalized<-predict(norm_model,UBank)
+UBank_Predictors<-UBank_normalized[,-10]
+UBank_labels<-UBank_normalized[,10]
+```
+
+Doing the data partition of 60% Training and 40% Validation
+
+```{r}
 set.seed(15)
-Test_Index = createDataPartition(UniversalBank1$Age,p=0.2, list=FALSE) # 20% reserved for Test
-Test_Data = UniversalBank1[Test_Index,]
-TraVal_Data = UniversalBank1[-Test_Index,] # Validation and Training data is rest
-
-Train_Index = createDataPartition(TraVal_Data$Age,p=0.60, list=FALSE) # 60% of remaining data as training
-Train_Data = TraVal_Data[Train_Index,]
-Validation_Data = TraVal_Data[-Train_Index,] # rest as validation
-
+inTrain = createDataPartition(UBank_normalized$Personal.Loan,p=0.6, list=FALSE)
+Train_Data = UBank_normalized[inTrain,]
+Val_Data = UBank_normalized[-inTrain,]
+dim(Train_Data)
 summary(Train_Data)
-summary(Validation_Data)
-summary(Test_Data)
-```
-
-***
-
-## Plotting
-
-Let us plot the data. I recommend you use ggplot, instead of the plot command. 
-
-```{r}
-library(ggplot2)
-ggplot(Train_Data, aes(x=Age,y=Income, color=Experience)) +
-  geom_point() 
+summary(Val_Data)
 
 ```
 
-***
 
-## Normalization
 
-Let us now normalize the data. 
 
-The preProcess ( ) function that is in the ‘caret’ package is a powerful method that has implemented a number of data processing and transformation methods.
-
- The function implements min-max normalization using “range” as the method or z-score scaling when using “center” and “scale” as input method parameters.
 ```{r}
-# Copy the original data
-train.norm.df <- Train_Data
-valid.norm.df <- Validation_Data
-traval.norm.df <- TraVal_Data
+Train_Predictors<-Train_Data[,-10]
+Val_Predictors<-Val_Data[,-10]
+Train_labels <-Train_Data[,10]
+Val_labels <-Val_Data[,10]
+Train_labels=as.factor(Train_labels)
+Val_labels=as.factor(Val_labels)
+UBank_labels<-as.factor(UBank_labels)
 
-# use preProcess() from the caret package to normalize Sales and Age.
-norm.values <- preProcess(Train_Data, method=c("center", "scale"))
+knn.pred <- knn(Train_Predictors,Val_Predictors,cl=Train_labels,k=1,prob = TRUE)
+Q1 <- data.frame(40, 10, 84, 2, 2, 0, 1, 0, 0, 0, 0, 1, 1)
+knn.pred1 <- knn(Train_Predictors, Q1, cl=Train_labels, k=1, prob = 0.5)
+knn.pred1
 
-train.norm.df <- predict(norm.values, Train_Data) # Replace all the columns with normalized values
-valid.norm.df <- predict(norm.values, Validation_Data)
-traval.norm.df <- predict(norm.values, traval.norm.df)
-test.norm.df <- predict(norm.values, Test_Data)
-
-summary(train.norm.df)
-var(train.norm.df)
-summary(valid.norm.df)
-var(valid.norm.df)
 ```
 
-***
-
-## Modeling k-NN
-
-Let us now apply knn. knn() is available in library FNN (provides a list of the nearest neighbors), and library class (allows a numerical output variable).
 
 ```{r}
-#install.packages("FNN") # install if needed
-library(FNN)
-nn <- knn(train = train.norm.df, test = test.norm.df, 
-          cl = train.norm.df[, 8], k = 3, prob=TRUE) # We use k = 3, and Urban is the Y
 
- #print(nn) # uncomment for more output
-
-#row.names(Train_Data)[attr(nn, "nn.index")]
-```
-
-Note the output provides class membership, and also a measure of distances from its nearest neighbors, in this case k=3.
-
-But, how does one choose k?
-
-***
-
-## Hypertuning using Validation
-
-To determine k, we use the performance on the validation set.
-Here, we will vary the value of k from 1 to 14
-
-```{r}
-# initialize a data frame with two columns: k, and accuracy.
 library(caret)
 accuracy.df <- data.frame(k = seq(1, 14, 1), accuracy = rep(0, 14))
-
-# compute knn for different k on validation.
 for(i in 1:14) {
-  knn.pred <- knn(train.norm.df, valid.norm.df, 
-                  cl = train.norm.df[, 8], k = i)
-  accuracy.df[i, 2] <- confusionMatrix(knn.pred, valid.norm.df[, 8])$overall[1] 
+knn <- knn(Train_Predictors, Val_Predictors, cl = Train_labels, k = i)
+accuracy.df[i, 2] <- confusionMatrix(knn, Val_labels)$overall[1]
 }
 accuracy.df
+
 ```
-
-
-The value of k that provides the best performance is k = 9. We apply the results to the test set.
-
-***
-
-## Prediction
-
-Before we predict for the test set, we should combine the Training and Validation set, normalize the data, and then do the prediction. 
-```{r}
-
-norm.values <- preProcess(TraVal_Data[, 1:2], method=c("center", "scale")) # Use combined set to normalize
-
-traval.norm.df[, 1:2] <- predict(norm.values, TraVal_Data[, 1:2])
-test.norm.df[, 1:2] <- predict(norm.values, Test_Data[, 1:2])
-summary(traval.norm.df)
-summary(test.norm.df)
-```
-
-Now we predict for the test set.
 
 ```{r}
-knn.pred.new <- knn(traval.norm.df[, 1:2], test.norm.df, 
-                    cl = traval.norm.df[, 3], k = 9)
-row.names(TraVal_Data)[attr(nn, "nn.index")]
+which.max( (accuracy.df$accuracy) )
+```
+Optimal value is of K=1 
+
+#Confision Matrix
+```{r}
+knn.pred3 <- knn(Train_Predictors,Val_Predictors,cl=Train_labels,k=3,prob = TRUE)
+confusionMatrix(knn.pred3,Val_labels)
 ```
 
+Repartition the data, this time into training, validation, and test sets (50% : 30% : 20%). Apply the k-NN method with the k chosen above.
 
+```{r}
+set.seed(15)
+Bank_Partition = createDataPartition(UBank_normalized$Personal,p=0.5, list=FALSE)
+TrainingData = UBank_normalized[Bank_Partition,]
+TestValidData = UBank_normalized[-Bank_Partition,]
+Test_Index = createDataPartition(TestValidData$Personal.Loan, p=0.6, list=FALSE)
+ValidationData = TestValidData[Test_Index,]
+Test_Data = TestValidData[-Test_Index,]
 
+```
 
+```{r}
+Training_Predictors<-TrainingData[,-10]
+Test_Predictors<-Test_Data[,-10]
+Validation_Predictors<-ValidationData[,-10]
+Training_labels <-TrainingData[,10]
+Test_labels <-Test_Data[,10]
+Validation_labels <-ValidationData[,10]
+Training_labels=as.factor(Training_labels)
+Test_labels<-as.factor(Test_labels)
+Validation_labels=as.factor(Validation_labels)
+```
+Confusion Matrix on Training data 
+```{r}
+knn.pred5 <- knn(Training_Predictors, Test_Predictors , cl=Training_labels, k=1, prob = TRUE)
+confusionMatrix(knn.pred5,Test_labels)
+```
+
+Confusion Matrix on Validation data 
+```{r}
+knn.pred6 <- knn(Validation_Predictors, Test_Predictors, cl=Validation_labels, k=1, prob = TRUE)
+confusionMatrix(knn.pred6,Test_labels)
+
+```
 
