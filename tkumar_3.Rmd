@@ -1,0 +1,125 @@
+---
+title: "ML Assignment 3 - Naive Bayes Classification"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+
+Loading the Data file in R
+```{r}
+FlightData<-read.csv("FlightDelays.csv")
+str(FlightData)
+head(FlightData)
+#View(FlightData)
+summary(FlightData)
+```
+Library for Naive Bayes theorem 
+
+```{r}
+library(caret)
+library(ISLR)
+# install.packages("e1071") #install first
+library(e1071)  
+
+```
+Clean the Data 
+```{r}
+FlightData<-FlightData[,c(-3,-5,-6,-7,-9,-11,-12)]
+str(FlightData)
+head(FlightData)
+```
+
+Change the numerical variables to factors
+```{r}
+
+FlightData$DAY_WEEK<-as.factor(FlightData$DAY_WEEK)
+levels(FlightData$DAY_WEEK)
+
+#creating hourly bins for the departure time
+FlightData$CRS_DEP_TIME<-as.factor(FlightData$CRS_DEP_TIME)
+levels(FlightData$CRS_DEP_TIME)
+
+#Outcome variable #Flight.Status 
+FlightData$Flight.Status<- factor(FlightData$Flight.Status, levels = c("delayed", "ontime"), labels = c(0,1))
+
+str(FlightData)
+#View(FlightData)
+```
+
+
+Divide into training and test
+
+```{r}
+
+set.seed(123)
+Index_train<-createDataPartition(FlightData$Flight.Status, p=0.6, list = FALSE)
+
+#Training Data
+TrainData<-FlightData[Index_train,]
+#Test Data
+TestData<-FlightData[-Index_train,]
+
+#Data validations at the Training and Test data set
+summary(TrainData)
+summary(TestData)
+```
+
+Run Naive Bayes
+
+```{r}
+nb_model<-naiveBayes(TrainData$Flight.Status~., data=TrainData)
+nb_model
+
+```
+
+Pivot table for Flight status by destination 
+```{r}
+pr<-prop.table(table(TrainData$Flight.Status, TrainData$DEST), margin = 1)
+pr
+```
+
+Using the model on Test set
+
+```{r}
+# Predict probabilities Test Data
+
+PredProb <- predict(nb_model, TestData)
+head(PredProb)
+#Confusion Matrix on the Test Data
+
+library("gmodels")
+CrossTable(x=TestData$Flight.Status, y=PredProb, prop.chisq=FALSE)
+
+#Predecting probability of each class
+PredProb<-predict(nb_model, TestData, type = "raw")
+head(PredProb)
+
+```
+
+
+Plot ROC curve for Test Data Set
+```{r}
+library("pROC")
+plot.roc(TestData$Flight.Status, PredProb[,2])
+
+```
+
+Output both a counts table and a proportion table outlining how many and what proportion table outlining how many and what proportion of flights were delayed and on-time at each of the three airports.
+```{r}
+#Counts Table
+table(FlightData$Flight.Status, FlightData$DEST)
+
+#Proportion Table
+prop.table(table(FlightData$Flight.Status, FlightData$DEST))
+```
+
