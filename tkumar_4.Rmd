@@ -1,0 +1,100 @@
+---
+title: "ML Assignment 4"
+output:
+  pdf_document: default
+  word_document: default
+---
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+Loading the Data
+```{r}
+rm(list = ls())
+
+library(tidyverse)
+#install.packages("factoextra")
+library(factoextra)
+library(ISLR)
+set.seed(123)
+
+DFUniver<-read.csv("Universities.csv")
+colnames(DFUniver)
+#summary(DFUniver)
+```
+Removing missing records from the Dataset (Measurements)
+```{r}
+DFUniver1<-na.omit(DFUniver, cols=c("in.state.tuition","out.of.state.tuition", "Graduation.rate", "State", "Public..1...Private..2."))
+```
+Scaling the data
+
+```{r}
+
+DFUniver1[,c(-1,-2)]<- scale(DFUniver1[,c(-1,-2)])
+distance <- get_dist(DFUniver1[,c(2,5)])
+fviz_dist(distance)
+```
+Finding the K mean values
+
+```{r}
+DFUniver2<-DFUniver1[,c(9,11)]
+k4 <- kmeans(DFUniver2, centers = 4, nstart = 25) # k = 4, number of restarts = 25
+
+# Visualize the output
+
+k4$centers # output the centers
+
+#number of Universities in each cluster
+k4$size
+
+# Identify the cluster of the 120th observation as an example
+k4$cluster[120]
+
+# Visualize the output
+
+fviz_cluster(k4, data = DFUniver2)
+```
+
+It is now easy to see that the bottom right cluster represents Universities with maximum undergrad student with low tution fees. 
+
+Usage of manhattan distance
+```{r}
+#install.packages("flexclust")
+library(flexclust)
+set.seed(123)
+#kmeans clustering, using manhattan distance
+k4 = kcca(DFUniver2, k=4, kccaFamily("kmedians"))
+k4
+
+#Let us now apply the predict function
+#Apply the predict() function
+clusters_index <- predict(k4)
+dist(k4@centers)
+
+image(k4)
+#points(df, col=clusters_index, pch=19, cex=0.3)
+```
+
+Determining k value using "elbo chart" to determine k
+
+```{r}
+library(tidyverse)  # data manipulation
+library(factoextra) # clustering & visualization
+library(ISLR)
+set.seed(123)
+
+df<-DFUniver1[,c(9,11)]
+# Scaling the data frame (z-score) 
+df <- scale(df)
+fviz_nbclust(df, kmeans, method = "wss")
+```
+
+Let us now apply the Silhouette Method to determine the number of clusters
+```{r}
+fviz_nbclust(df, kmeans, method = "silhouette")
+```
+
