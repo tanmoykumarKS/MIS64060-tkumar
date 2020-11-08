@@ -70,8 +70,6 @@ DFNumerical<-DFUniver1[,c(-1,-2)]
 library(corrplot)
 corrplot(cor(DFNumerical), method = "color")
 
-
-
 ```
 In the correlation graph, Darker Blue(+1) and Dark Orange(-1) shows the higher correlated data. Using this data to understand any correlation among the column data.
 
@@ -97,7 +95,7 @@ k4$centers # output the centers
 #number of Universities in each cluster
 k4$size
 
-# Visualize the output - Application Accepted vs Out of State Fee
+# Visualize the cluster output 
 
 fviz_cluster(k4, data =DFNumerical)
 
@@ -127,40 +125,42 @@ set.seed(123)
 #Finding optimal number of clusters - Elbow Method
 fviz_nbclust(DFNumerical, kmeans, method = "wss")
 
-#From the Elbow method it seems 4 clusters would be optimum.
+#From the Elbow method it seems 3 or 4 clusters would be optimum. From previous cluster plotting we have seen that optimal cluster size would be 3. 
 ```
-```{r}
-DFUniver1 %>%
-  mutate(Cluster = k4$cluster) %>%
-  group_by(Cluster) %>%
-  summarise_all("mean")
-
-```
-
 
 Using the categorical measurements that were not used i n the analysis (State and
 Private/Public) to characterize the different clusters.
 
 ```{r}
 #State wise values present in the cluster
-table(DFUniver1$State, k4$cluster)
+table(DFUniver1$State, k3$cluster)
+
+#Merging the clusters to the original Dat frame
+Clusters<-data.frame(k3$cluster)
+Clusters<-Clusters%>%rename(clusters=k3.cluster)
+UnivAnalysis<-cbind(DFUniver1, Clusters)
+head(UnivAnalysis)
+#Cluster Summary Analysis
+
+ClusterStat<-UnivAnalysis%>%group_by(clusters)%>%summarise(Acceptance_rate=sum(ApplAccept)/sum(ApplRec), AvgOutStateTution=mean(OutStateFee),AvgInStateTution=mean(InStateFee), AvgGradRate=mean(Graduation.rate))
+
+ClusterStat
 
 ```
-
-Tufts University data imputation 
+Use the categorical measurements that were not used i n the analysis (State and
+Private/Public) to characterize the different clusters. Is there any relationship between the
+clusters and the categorical information?
 
 ```{r}
-# Initial Dataframe DFUniver with no imputation 
-library(flexclust)
-set.seed(123)
-#kmeans clustering, using Euclidean distance
-k5 = kcca(DFNumerical, k=5, kccaFamily("kmeans"))
-k5
+PublicPrivate<-UnivAnalysis%>%group_by(clusters)%>%summarise(Acceptance_rate=sum(ApplAccept)/sum(ApplRec), AvgOutStateTution=mean(OutStateFee),AvgInStateTution=mean(InStateFee), AvgGradRate=mean(Graduation.rate), PublicUnivCount=sum(Pub.Private==1), PrivateUnivCount=sum(Pub.Private==2))
 
-#Apply the predict() function
-clusters_index <- predict(k5)
-image(k5)
-#points(df, col=clusters_index, pch=19, cex=0.3)
+PublicPrivate
 ```
+
+Consider Tufts University, which is missing some information. Compute the Euclidean
+distance of this record from each of the clusters that you found above (using only the
+measurements that you have). Which cluster is it closest to? Impute the missing values for
+Tufts by taking the average of the cluster on those measurements.
+
 
 
