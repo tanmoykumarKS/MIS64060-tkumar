@@ -25,6 +25,8 @@ set.seed(123)
 DFUniver<-read.csv("Universities.csv")
 colnames(DFUniver)
 #summary(DFUniver)
+
+#Changing the column names to suitable ones.
 DFUniver<-DFUniver%>%rename(
   Pub.Private=Public..1...Private..2.,
   ApplRec=X..appli..rec.d,
@@ -43,6 +45,8 @@ DFUniver<-DFUniver%>%rename(
 )
 
 colnames(DFUniver)
+
+
 ```
 Removing missing records from the Dataset (Measurements)
 ```{r}
@@ -66,28 +70,25 @@ DFNumerical<-DFUniver1[,c(-1,-2)]
 library(corrplot)
 corrplot(cor(DFNumerical), method = "color")
 
+
+
 ```
-In the correlation graph, Darker Blue and Dark Orange shows the higher correlated data. Using this data to understand any correlation among the column data.
+In the correlation graph, Darker Blue(+1) and Dark Orange(-1) shows the higher correlated data. Using this data to understand any correlation among the column data.
 
-Finding the K-means clustering values - Universities of Public & Private type and In State Fee Amount
+Applying K-means clustering for Numeric Data
 ```{r}
-colnames(DFNumerical)
-DFPubPriInState<-DFNumerical[,c(1,9)]
-
 #Scaling the Data
-DFPubPriInState<-scale(DFPubPriInState)
+DFNumerical<-scale(DFNumerical)
 
 #Distance Between Observations
-distance <- get_dist(DFPubPriInState)
-fviz_dist(distance)
+distance <- get_dist(DFNumerical)
 
-#Finding optimal number of clusters - Elbow Method
-fviz_nbclust(DFPubPriInState, kmeans, method = "wss")
+fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
 
-#From the Elbow method we can see that optimum no. of cluster size is 7, for this data set
+#Finding Kmeans using cluster size =4
 
-#Clustering of In State Fee data with the relation between Public and Private Universities
-k4 <- kmeans(DFPubPriInState, centers = 3, nstart = 25) # k = 3, number of restarts = 25
+k4 <- kmeans(DFNumerical, centers = 4, nstart = 25) # k = 4, number of restarts = 25
+str(k4)
 
 # Visualize the output
 
@@ -96,72 +97,70 @@ k4$centers # output the centers
 #number of Universities in each cluster
 k4$size
 
-# Identify the cluster of the 120th observation as an example
-k4$cluster[120]
+# Visualize the output - Application Accepted vs Out of State Fee
 
-# Visualize the output
+fviz_cluster(k4, data =DFNumerical)
 
-fviz_cluster(k4, data = DFPubPriInState)
 ```
-Making cluster on another data set - New Student Enroll and Out of State Fee
-```{r}
-colnames(DFNumerical)
-DFEnrolOutStFee<-DFNumerical[,c(4,10)]
 
-#Scaling the Data
-DFEnrolOutStFee<-scale(DFEnrolOutStFee)
-
-#Finding optimal number of clusters - Elbow Method
-fviz_nbclust(DFEnrolOutStFee, kmeans, method = "wss")
-
-#From the Elbow method we can see that optimum no. of cluster size is 4, for this data set
-
-#Clustering of Out State Fee data with relation between Student Enroll by the Universities
-k4 <- kmeans(DFEnrolOutStFee, centers = 5, nstart = 25) # k = 5, number of restarts = 25
-
-# Visualize the output
-
-k4$centers # output the centers
-
-#number of Universities in each cluster
-k4$size
-
-# Identify the cluster of the 120th observation as an example
-k4$cluster[120]
-
-# Visualize the output
-
-fviz_cluster(k4, data = DFEnrolOutStFee)
-```
-Making cluster on another data set - Student Application and Out of State Fee
+Comparision different cluster values
 
 ```{r}
-colnames(DFNumerical)
-DFStAppOutStFee<-DFNumerical[,c(3,10)]
+k2 <- kmeans(DFNumerical, centers = 2, nstart = 25)
+k3 <- kmeans(DFNumerical, centers = 3, nstart = 25)
+k4 <- kmeans(DFNumerical, centers = 4, nstart = 25)
+k5 <- kmeans(DFNumerical, centers = 5, nstart = 25)
 
-#Scaling the Data
-DFStAppOutStFee<-scale(DFStAppOutStFee)
+# plots to compare
+p1 <- fviz_cluster(k2, geom = "point", data = DFNumerical) + ggtitle("k = 2")
+p2 <- fviz_cluster(k3, geom = "point",  data = DFNumerical) + ggtitle("k = 3")
+p3 <- fviz_cluster(k4, geom = "point",  data = DFNumerical) + ggtitle("k = 4")
+p4 <- fviz_cluster(k5, geom = "point",  data = DFNumerical) + ggtitle("k = 5")
 
+library(gridExtra)
+grid.arrange(p1, p2, p3, p4, nrow = 2)
+```
+From the above comparison it seems that 3 clusters would be good. 
+
+```{r}
+set.seed(123)
 #Finding optimal number of clusters - Elbow Method
-fviz_nbclust(DFStAppOutStFee, kmeans, method = "wss")
+fviz_nbclust(DFNumerical, kmeans, method = "wss")
 
-#From the Elbow method we can see that optimum no. of cluster size is 5, for this data set
-k4 <- kmeans(DFStAppOutStFee, centers = 5, nstart = 25) # k = 5, number of restarts = 25
+#From the Elbow method it seems 4 clusters would be optimum.
+```
+```{r}
+DFUniver1 %>%
+  mutate(Cluster = k4$cluster) %>%
+  group_by(Cluster) %>%
+  summarise_all("mean")
 
-# Visualize the output
-
-k4$centers # output the centers
-
-#number of Universities in each cluster
-k4$size
-
-# Identify the cluster of the 120th observation as an example
-k4$cluster[120]
-
-# Visualize the output
-
-fviz_cluster(k4, data = DFStAppOutStFee)
 ```
 
+
+Using the categorical measurements that were not used i n the analysis (State and
+Private/Public) to characterize the different clusters.
+
+```{r}
+#State wise values present in the cluster
+table(DFUniver1$State, k4$cluster)
+
+```
+
+Tufts University data imputation 
+
+```{r}
+# Initial Dataframe DFUniver with no imputation 
+library(flexclust)
+set.seed(123)
+#kmeans clustering, using Euclidean distance
+k5 = kcca(DFNumerical, k=5, kccaFamily("kmeans"))
+k5
+
+#Apply the predict() function
+clusters_index <- predict(k5)
+image(k5)
+#points(df, col=clusters_index, pch=19, cex=0.3)
+```
 
 
