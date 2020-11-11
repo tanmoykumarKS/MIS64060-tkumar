@@ -1,8 +1,8 @@
 ---
 title: "ML Assignment 4"
 output:
-  pdf_document: default
   word_document: default
+  pdf_document: default
 ---
 ## R Markdown
 
@@ -63,10 +63,11 @@ Finding the Data Summary and Measure of Dependence
 #Summary Data
 summary(DFUniver1)
 
-#Finding the correlation between the data set
-#Selecting numerical columns only 
+#Subsetting the data 
 
-DFNumerical<-DFUniver1[,c(-1,-2)]
+DFNumerical<-subset(DFUniver1, select = -c(1,2,3)) 
+
+#Finding the correlation between the data set
 library(corrplot)
 corrplot(cor(DFNumerical), method = "color")
 
@@ -83,49 +84,61 @@ distance <- get_dist(DFNumerical)
 
 fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
 
-#Finding Kmeans using cluster size =4
-
-k4 <- kmeans(DFNumerical, centers = 4, nstart = 25) # k = 4, number of restarts = 25
-str(k4)
-
-# Visualize the output
-
-k4$centers # output the centers
-
-#number of Universities in each cluster
-k4$size
-
-# Visualize the cluster output 
-
-fviz_cluster(k4, data =DFNumerical)
-
 ```
 
-Comparision different cluster values
+Comparison different cluster values
 
 ```{r}
+
 k2 <- kmeans(DFNumerical, centers = 2, nstart = 25)
 k3 <- kmeans(DFNumerical, centers = 3, nstart = 25)
 k4 <- kmeans(DFNumerical, centers = 4, nstart = 25)
 k5 <- kmeans(DFNumerical, centers = 5, nstart = 25)
+k6 <- kmeans(DFNumerical, centers = 5, nstart = 25)
 
 # plots to compare
-p1 <- fviz_cluster(k2, geom = "point", data = DFNumerical) + ggtitle("k = 2")
-p2 <- fviz_cluster(k3, geom = "point",  data = DFNumerical) + ggtitle("k = 3")
-p3 <- fviz_cluster(k4, geom = "point",  data = DFNumerical) + ggtitle("k = 4")
-p4 <- fviz_cluster(k5, geom = "point",  data = DFNumerical) + ggtitle("k = 5")
+p2 <- fviz_cluster(k2, geom = "point", data = DFNumerical) + ggtitle("k = 2")
+p3 <- fviz_cluster(k3, geom = "point",  data = DFNumerical) + ggtitle("k = 3")
+p4 <- fviz_cluster(k4, geom = "point",  data = DFNumerical) + ggtitle("k = 4")
+p5 <- fviz_cluster(k5, geom = "point",  data = DFNumerical) + ggtitle("k = 5")
+p6 <- fviz_cluster(k6, geom = "point",  data = DFNumerical) + ggtitle("k = 6")
 
 library(gridExtra)
-grid.arrange(p1, p2, p3, p4, nrow = 2)
+grid.arrange(p2, p3, p4, p5, p6, nrow = 2)
 ```
-From the above comparison it seems that 3 clusters would be good. 
+From the above comparison it seems that 3 clusters would be good. Determining Optimal Cluster using Elbow and Silhouette method. 
 
 ```{r}
 set.seed(123)
 #Finding optimal number of clusters - Elbow Method
 fviz_nbclust(DFNumerical, kmeans, method = "wss")
 
-#From the Elbow method it seems 3 or 4 clusters would be optimum. From previous cluster plotting we have seen that optimal cluster size would be 3. 
+#Determining Optimal Cluster by Average Silhouette Method
+fviz_nbclust(DFNumerical, kmeans, method = "silhouette")
+
+#From the Silhouette method it seems 3 no. of clusters would be optimum. From previous cluster plotting we have seen that optimal cluster size would be 3. 
+
+#3 clusters are the reasonable for this data and the optimal K is 3.
+k3 <- kmeans(DFNumerical, centers = 3, nstart = 25)
+# Optimal Visualization
+fviz_cluster(k3,data = DFNumerical) 
+```
+Compare the summary statistics for each cluster and describe each cluster i n this context
+(e.g., “Universities with high tuition, l ow acceptance rate...”).
+
+```{r}
+
+k3 <- kmeans(DFNumerical, centers = 3, nstart = 25)
+# centers
+k3$centers 
+
+# Count of Clusters
+k3$size 
+
+#Visualize the cluster
+fviz_cluster(k3, data = DFNumerical)
+#k3
+
 ```
 
 Using the categorical measurements that were not used i n the analysis (State and
@@ -135,32 +148,32 @@ Private/Public) to characterize the different clusters.
 #State wise values present in the cluster
 table(DFUniver1$State, k3$cluster)
 
-#Merging the clusters to the original Dat frame
+#Merging the clusters to the original Data frame
 Clusters<-data.frame(k3$cluster)
+
 Clusters<-Clusters%>%rename(clusters=k3.cluster)
+
 UnivAnalysis<-cbind(DFUniver1, Clusters)
 head(UnivAnalysis)
-#Cluster Summary Analysis
 
+#Cluster Summary Analysis
 ClusterStat<-UnivAnalysis%>%group_by(clusters)%>%summarise(Acceptance_rate=sum(ApplAccept)/sum(ApplRec), AvgOutStateTution=mean(OutStateFee),AvgInStateTution=mean(InStateFee), AvgGradRate=mean(Graduation.rate))
 
 ClusterStat
 
+#Findig the Public and Private Universities present in the clusters
+ClusterStat<-UnivAnalysis%>%group_by(clusters,Pub.Private)%>%summarise(Univ_Count=n())
+
+ClusterStat
+
+#Yes, there is a relationship between clusters and categorical information. 
+
 ```
-Use the categorical measurements that were not used i n the analysis (State and
-Private/Public) to characterize the different clusters. Is there any relationship between the
-clusters and the categorical information?
-
-```{r}
-PublicPrivate<-UnivAnalysis%>%group_by(clusters)%>%summarise(Acceptance_rate=sum(ApplAccept)/sum(ApplRec), AvgOutStateTution=mean(OutStateFee),AvgInStateTution=mean(InStateFee), AvgGradRate=mean(Graduation.rate), PublicUnivCount=sum(Pub.Private==1), PrivateUnivCount=sum(Pub.Private==2))
-
-PublicPrivate
-```
-
 Consider Tufts University, which is missing some information. Compute the Euclidean
 distance of this record from each of the clusters that you found above (using only the
 measurements that you have). Which cluster is it closest to? Impute the missing values for
 Tufts by taking the average of the cluster on those measurements.
+
 
 
 
