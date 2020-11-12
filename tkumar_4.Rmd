@@ -55,6 +55,7 @@ count(DFUniver[!complete.cases(DFUniver),])
 
 #Ipute the NULL values
 DFUniver1<-na.omit(DFUniver) 
+count(DFUniver1)
 
 ```
 
@@ -116,7 +117,7 @@ fviz_nbclust(DFNumerical, kmeans, method = "wss")
 #Determining Optimal Cluster by Average Silhouette Method
 fviz_nbclust(DFNumerical, kmeans, method = "silhouette")
 
-#From the Silhouette method it seems 3 no. of clusters would be optimum. From previous cluster plotting we have seen that optimal cluster size would be 3. 
+#Silhouette method shows that 3 numbers of clusters would be optimum. From previous cluster plotting we have seen that optimal cluster size would be 3. 
 
 #3 clusters are the reasonable for this data and the optimal K is 3.
 k3 <- kmeans(DFNumerical, centers = 3, nstart = 25)
@@ -127,17 +128,38 @@ Compare the summary statistics for each cluster and describe each cluster i n th
 (e.g., “Universities with high tuition, l ow acceptance rate...”).
 
 ```{r}
+# 3 is the Optimal Cluster
+k3 <- kmeans(DFNumerical,centers = 3 ,nstart = 25)
+#print(k3)
+k3$centers # Description of the centers
+plot(c(0), xaxt = 'n', ylab = "", type = "l",
+     ylim = c(min(k3$centers), max(k3$centers)), xlim = c(0, 18))
+# plot centroids
+for (i in c(1:3))
+  lines(k3$centers[i,], lty = i, lwd = 2) 
+# name clusters
+text(x = 0.5, y = k3$centers[, 1], labels = paste("Cluster", c(1:3))) # Cluster Names
+k3$size # Count of Clusters
 
-k3 <- kmeans(DFNumerical, centers = 3, nstart = 25)
-# centers
-k3$centers 
+#Merging the clusters to the original Data frame
+Clusters<-data.frame(k3$cluster)
 
-# Count of Clusters
-k3$size 
+Clusters<-Clusters%>%rename(clusters=k3.cluster)
 
-#Visualize the cluster
-fviz_cluster(k3, data = DFNumerical)
-#k3
+UnivAnalysis<-cbind(DFUniver1, Clusters)
+head(UnivAnalysis)
+
+ClusterStat<-UnivAnalysis%>%group_by(clusters)%>%summarise(Acceptance_rate=sum(ApplAccept)/sum(ApplRec), AvgOutStateTution=mean(OutStateFee),AvgInStateTution=mean(InStateFee), AvgGradRate=mean(Graduation.rate))
+
+ClusterStat
+
+#Cluster 1 – Universities with highest acceptance rate, Lowest Out State fee but average In state fees but the graduation rate is also low. 
+
+#Cluster 3– Universities with lowest acceptance rate but having highest Out of state fees. But the graduation rate is significantly higher. 
+
+#Cluster 2 – Universities with lowest in state tuition fees and have around 60% graduation rate.
+
+#We can perform all comparision analysis in similar ways. 
 
 ```
 
@@ -148,31 +170,68 @@ Private/Public) to characterize the different clusters.
 #State wise values present in the cluster
 table(DFUniver1$State, k3$cluster)
 
-#Merging the clusters to the original Data frame
-Clusters<-data.frame(k3$cluster)
+#View(UnivAnalysis)
+Cluster1 <- UnivAnalysis[UnivAnalysis$clusters == 1,]
+#View(Cluster1[,c(1,2,3,21)])
 
-Clusters<-Clusters%>%rename(clusters=k3.cluster)
+Cluster2 <- UnivAnalysis[UnivAnalysis$clusters == 2,]
+#View(Cluster2[,c(1,2,3,21)])
 
-UnivAnalysis<-cbind(DFUniver1, Clusters)
-head(UnivAnalysis)
+Cluster3 <- UnivAnalysis[UnivAnalysis$clusters == 3,]
+#View(Cluster3[,c(1,2,3,21)])
 
-#Cluster Summary Analysis
-ClusterStat<-UnivAnalysis%>%group_by(clusters)%>%summarise(Acceptance_rate=sum(ApplAccept)/sum(ApplRec), AvgOutStateTution=mean(OutStateFee),AvgInStateTution=mean(InStateFee), AvgGradRate=mean(Graduation.rate))
+library(ggplot2)
+legend <- factor(UnivAnalysis$clusters,levels = c(1,2,3),labels = c("Cluster 1","Cluster 2","Cluster 3"))
+ggplot(UnivAnalysis,aes(x=State,y=factor(Pub.Private,levels = c(1,2),labels = c("Public","Private")),
+        color=legend))+
+         geom_point()+ylab("Public/Private")+xlab("state")+ggtitle("Cluster Plot")
 
-ClusterStat
+#Plotted the graph which represents all the public and private colleges along with its cluster. Each state has colleges a maximum of 2 out of the 3 clusters. Yes, there is a relationship between clusters and categorical information. 
 
-#Findig the Public and Private Universities present in the clusters
-ClusterStat<-UnivAnalysis%>%group_by(clusters,Pub.Private)%>%summarise(Univ_Count=n())
-
-ClusterStat
-
-#Yes, there is a relationship between clusters and categorical information. 
 
 ```
+What other external i nformation can explain the contents of some or all of these clusters?
+```{r}
+
+k3$withinss # within cluster sum of squares with high ratio as possible
+k3$betweenss # mean of distances between cluster centers with ration lower as possible
+k3$size # number of points in each cluster
+k3$centers # CLuster Centers
+#•	Within cluster sum of squares with high ratio as possible
+#•	Mean of distances between cluster centers with ration lower as possible
+#•	Number of points in each cluster
+#•	Cluster Centers
+#•	The k value which the highest $withinss is the best choice, because we expect the within sum of squares ratio to be as lower as possible.
+```
+
 Consider Tufts University, which is missing some information. Compute the Euclidean
 distance of this record from each of the clusters that you found above (using only the
 measurements that you have). Which cluster is it closest to? Impute the missing values for
 Tufts by taking the average of the cluster on those measurements.
+```{r}
+library(cluster)
+#View(DFNumerical)
+K<-kmeans(DFNumerical,centers = 3)
+b1<-mean(K$centers[1,])
+b2<-mean(K$centers[2,])
+b3<-mean(K$centers[3,])
+a1<-DFUniver[DFUniver$College.Name =="Tufts University",]
+#View(a1)
+#View(a1[,-c(1:3)])
+a2<-apply(a1[,-c(1:3,10)],1,mean)
+a2
+dist(rbind(a2,b1))
+dist(rbind(a2,b2))
+dist(rbind(a2,b3))
+a1$PTUnderG <- 2452.064
+uni2<-rbind(DFNumerical,a1[,-c(1:3)])
+#View(uni2)
+uni2_z<-scale(uni2)
+uni2_cluster<-kmeans(uni2_z,3,nstart = 25)
+uni2<-cbind(uni2,uni2_cluster$cluster)
+uni2[472,] # From the model, this university falls under Cluster 1
+# Falls in cluster 1
+```
 
 
 
