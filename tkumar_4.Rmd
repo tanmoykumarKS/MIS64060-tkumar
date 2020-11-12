@@ -227,9 +227,9 @@ dist(rbind(Tufts, k3$centers[2,]))
 
 dist(rbind(Tufts, k3$centers[3,]))
 
-#Cluster 1 has shortest distance 
+#Cluster 3 has shortest distance 
 
-Avg_PTUnderG <- mean(Cluster1$PTUnderG)
+Avg_PTUnderG <- mean(Cluster3$PTUnderG)
 
 #Update the value 609.22 for the Tuft University 
 Tufts[,c(10)]<-Avg_PTUnderG
