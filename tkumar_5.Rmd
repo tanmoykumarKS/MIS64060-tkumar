@@ -1,0 +1,224 @@
+---
+title: "Assignment-5 Hierarchical Clustering"
+author: "Tanmoy"
+date: "12/5/2020"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+Hierarchical clustering
+```{r}
+rm(list = ls())
+library(caret)
+library(ISLR)
+library(factoextra)    
+library(cluster)  
+library(NbClust)      
+
+#Loadinng the data
+DFCereals<-read.csv("Cereals.csv")
+
+#EDA of the data set
+summary(DFCereals)
+
+colMeans(is.na(DFCereals))
+
+#Median imputation of missing data 
+preProcess_1<-preProcess(DFCereals, method = c("medianImpute"))
+ImputedDF<-predict(preProcess_1, DFCereals)
+
+#No more NULL values presnt
+colMeans(is.na(ImputedDF))
+
+#Scaling the DF
+ImputedDF<-subset(ImputedDF, select= -c(1,2,3))
+ImputedDF<-scale(ImputedDF)
+
+
+# Compute with agnes and with different linkage methods
+hc_single <- agnes(ImputedDF, method = "single")
+hc_complete<-agnes(ImputedDF, method="complete")
+hc_average <- agnes(ImputedDF, method = "average")
+hc_ward <- agnes(ImputedDF, method = "ward")
+
+# Compare Agglomerative coefficients
+print(hc_single$ac)
+print(hc_complete$ac)
+print(hc_average$ac)
+print(hc_ward$ac)
+
+# The approach used by Ward describes the best clustering mechanism of the four approaches tested
+#visualize the dendrogram
+pltree(hc_ward, cex = 0.6, hang = -1, main = "Dendrogram of agnes")  
+```
+Q> Comment on differences between hierarchical Clustering and K-means
+
+```{r}
+
+set.seed(123)
+#Finding optimal number of clusters - Elbow Method
+fviz_nbclust(ImputedDF, kmeans, method = "wss")
+
+#Determining Optimal Cluster by Average Silhouette Method
+fviz_nbclust(ImputedDF, kmeans, method = "silhouette")
+
+#Silhouette method shows that 8 numbers of clusters would be optimum.  
+
+k8 <- kmeans(ImputedDF, centers = 8, nstart = 25)
+fviz_cluster(k8, geom = "point",  data = ImputedDF) + ggtitle("k = 8")
+
+
+# slicing the dendogram on the longest path, 8 is the optimal level of clusters.
+# Cut tree into 8 groups
+sub_grp <- cutree(hc_ward, k = 8)
+C2 <- as.data.frame(cbind(ImputedDF,sub_grp))
+C2
+# Number of members in each cluster
+table(sub_grp)
+
+#plot dendrogram
+pltree(hc_ward, cex = 0.6, hang = -1, main = "Dendrogram of agnes")
+rect.hclust(hc_ward, k = 8, border = 1:4)
+
+#From the Dendrogram it seems thatclustering at level of 5 would have been optimum. 
+pltree(hc_ward, cex = 0.6, hang = -1, main = "Dendrogram of agnes")
+rect.hclust(hc_ward, k = 5, border = 1:4)
+
+#Thus, Hierarchical clustering would be better approach than kmeans to find the suitable no. of clusters.
+
+# Gap statistic
+set.seed(42)
+fviz_nbclust(ImputedDF, kmeans,
+  nstart = 25,
+  method = "gap_stat",
+  nboot = 500
+) + # reduce it for lower computation time (but less precise results)
+  labs(subtitle = "Gap statistic method")
+
+#The optimal number of clusters is the one that maximizes the gap statistic. This method suggests only 1 cluster (which is therefore a useless clustering)
+
+#Three methods do not necessarily lead to the same result. Here, all 3 approaches suggest a different number of clusters.
+
+#A fourth alternative is to use the NbClust() function, which provides 30 indices for choosing the best number of clusters.
+nbclust_out <- NbClust(
+  data = ImputedDF,
+  distance = "euclidean",
+  min.nc = 2, # minimum number of clusters
+  max.nc = 5, # maximum number of clusters
+  method = "kmeans" # one of: "ward.D", "ward.D2", "single", "complete", "average", "mcquitty", "median", "centroid", "kmeans"
+)
+
+# create a dataframe of the optimal number of clusters
+nbclust_plot <- data.frame(clusters = nbclust_out$Best.nc[1, ])
+# select only indices which select between 2 and 5 clusters
+nbclust_plot <- subset(nbclust_plot, clusters >= 2 & clusters <= 5)
+
+# create plot
+ggplot(nbclust_plot) +
+  aes(x = clusters) +
+  geom_histogram(bins = 30L, fill = "#0c4c8a") +
+  labs(x = "Number of clusters", y = "Frequency among all indices", title = "Optimal number of clusters") +
+  theme_minimal()
+#Based on all 30 indices, the best number of clusters is 5 clusters.
+# I would choose 5 clusters. 
+
+```
+Q> Comment on the structure of the clusters and on their stability. 
+
+```{r}
+library(caret)
+DF<-ImputedDF
+
+# Cluster partition  
+trainDF<-DF[1:45,] # Partition A
+testDF<-DF[46:77,] # Partition B
+trainDF <- scale(trainDF)
+testDF<-scale(testDF)
+
+# The approach used earlier describes that ward is the best clustering mechanism
+hc_train <- agnes(trainDF, method = "ward")
+
+#visualize the dendrogram
+pltree(hc_train, cex = 0.6, hang = -1, main = "Dendrogram of agnes")  
+rect.hclust(hc_train, k = 5)
+
+CWcut <- cutree(hc_train, k = 5)
+CWtotal <- as.data.frame( cbind(trainDF,CWcut))
+head(CWtotal)
+
+
+CWclust1 <- CWtotal[CWtotal$CWcut==1,]
+ colMeans(CWclust1)
+ 
+CWclust2 <- CWtotal[CWtotal$CWcut==2,]
+ colMeans(CWclust2)
+ 
+CWclust3 <- CWtotal[CWtotal$CWcut==3,]
+ colMeans(CWclust3)
+ 
+CWclust4 <- CWtotal[CWtotal$CWcut==4,]
+ colMeans(CWclust4)
+ 
+ CWclust5 <- CWtotal[CWtotal$CWcut==5,]
+ colMeans(CWclust5)
+ 
+CWmeans1 <- rbind(colMeans(CWclust1),colMeans(CWclust2),colMeans(CWclust3),colMeans(CWclust4) ,colMeans(CWclust5))
+head(CWmeans1)
+
+
+
+```
+
+Q> The elementary public schools would like to choose a set of cereals to include in their
+daily cafeterias. Every day a different cereal is offered, but all cereals should support a
+healthy diet. For this goal, you are requested to find a cluster of “healthy cereals.”
+Should the data be normalized? If not, how should they be used in the cluster analysis?
+
+```{r}
+#install.packages("hrbrthemes")
+library(GGally)
+library(ggplot2)
+library(hrbrthemes)
+library(viridis)
+#ggparcoord(cbind(c(1:4),CWmeans),columns = 2:14,groupColumn = 1,showPoints = TRUE,title = " Charter of cluster",alphaLines = 0.9) + scale_color_viridis (discrete = TRUE)+theme_ipsum()+theme(plot.title = element_text(size = 10)) 
+ggparcoord(CWmeans1,
+           columns = 1:13, groupColumn = 14,
+           showPoints = TRUE, 
+           title = "Cluster Characteristics",
+           alphaLines = 0.9
+) + 
+  scale_color_viridis(discrete=FALSE)
+# Based on the characteristics of the cluster, it is clear that Cluster 1 is the strongest with low calories, high protein, potassium, fiber top-rated.
+###In general,when we use the distance metric algorithm the data should be normalized,because the data characteristics are diverse. Therefore, it is necessary to standardize the data.
+```
+Q> How do you compare hierarchical clustering and k-means? What are they main
+advantages of hierarchical clustering compared to k-means?
+
+Ans: Clustering is a subjective statistical analysis and there can be more than one appropriate algorithm, depending on the dataset at hand or the type of problem to be solved. So choosing between k-means and hierarchical clustering is not always easy. If the cluster size is known or if we know that there is a specific number of clusters in our dataset (for example if we would like to distinguish diseased and healthy patients depending on some characteristics but we do not know in which group patients belong to), we should probably opt for the k-means clustering as this technique is used when the number of groups is specified in advance.
+  If the number of groups or clusters in the dataset is unknown (for instance in marketing when trying to distinguish clients without any prior belief on the number of different types of customers), then we should probably opt for the hierarchical clustering to determine in how many clusters the data should be divided.
+
