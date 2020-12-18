@@ -1,0 +1,216 @@
+---
+title: "Machine Learning - Final Exam"
+author: "Tanmoy Kumar"
+date: "12/10/2020"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+Load the Data
+
+```{r}
+rm(list = ls())
+
+library(caret)
+library(dplyr)
+library(ISLR)
+library(tidyverse)
+library(NbClust)
+library(factoextra)
+library(ISLR)
+library(ggplot2)
+library(e1071)
+
+set.seed(123)
+BathSoapDF<-read.csv("BathSoap.csv")
+
+# Data Structure 
+colnames(BathSoapDF)
+str(BathSoapDF)
+
+colMeans(is.na(BathSoapDF))
+#No missing records present
+
+#Sample Data
+head(BathSoapDF)
+```
+Converting the character values to numeric ones
+```{r}
+#creating temporary DF with % value column
+a<-BathSoapDF[20:46] %>% mutate_each(funs(as.numeric(gsub("%", "",., fixed = TRUE))/100))
+
+#Adding column of numeric values to the 
+BathSoapDF<-cbind(BathSoapDF[1:19], a)
+
+#validating data conversion
+str(BathSoapDF)
+head(BathSoapDF)
+
+```
+
+Kmeans clustering 
+
+```{r}
+
+#The variables that describe purchase behavior (including brand loyalty)
+BrandLoyality<-select(BathSoapDF,"Br..Cd..57..144","Br..Cd..55","Br..Cd..272","Br..Cd..286","Br..Cd..24","Br..Cd..481","Br..Cd..352","Br..Cd..5")
+BathSoapDF$Loyality <- apply(BrandLoyality,MARGIN = 1,FUN = max)
+BathSoapDF$LoyalBrand_1_8 <- max.col(BrandLoyality)
+Brand_Other <- select(BathSoapDF,"Loyality","Others.999")
+BathSoapDF$Brand_1_Other_2_Loyal <- max.col(Brand_Other)
+
+#1.Use k-means clustering to identify clusters of households based on:
+# a.The variables that describe purchase behavior (including brand loyalty)
+#Purchase behavior (volume, frequency, susceptibility to discounts, and brand loyalty)
+
+BSa <- select(BathSoapDF,"No..of.Brands","Brand.Runs","Total.Volume","No..of..Trans","Value",
+              "Trans...Brand.Runs","Avg..Price",
+              "Pur.Vol.No.Promo....","Pur.Vol.Promo.6..","Pur.Vol.Other.Promo..","Brand_1_Other_2_Loyal","LoyalBrand_1_8")
+
+#scaling the data set
+BSaScale <- scale(BSa)
+ 
+# Finding the Best Number Of Clusters Comparing with Most of the methods
+NbClust(data = BSaScale,distance = "euclidean",min.nc = 2, max.nc = 15, method = "kmeans")
+
+```
+```{r}
+# According to the majority rule, the best number of clusters is  2
+
+# Elbow method Approches
+
+fviz_nbclust(BSaScale, kmeans, method = "wss")+labs(subtitle = "Elbow method")
+
+BSaK <- kmeans(BSaScale,centers = 2,nstart = 25)
+
+library(cluster) 
+BSaK$size
+
+barplot(BSaK$centers,beside = TRUE,col = rainbow(2),cex.names = .7,las=2,
+        args.legend = list(x ='topright', bty='n'),legend.text = (1:nrow(BSaK$centers)))
+
+```
+
+
+#b.The variables that describe the basis for purchase
+```{r}
+
+#Basis of purchase (price, selling proposition)
+BSb <- select(BathSoapDF,"Pr.Cat.1","Pr.Cat.2","Pr.Cat.3","Pr.Cat.4",
+              "PropCat.5","PropCat.6","PropCat.7","PropCat.8","PropCat.9","PropCat.10",
+              "PropCat.11","PropCat.12","PropCat.13","PropCat.14","PropCat.15",
+              "Pur.Vol.No.Promo....","Pur.Vol.Promo.6..","Pur.Vol.Other.Promo..")
+#BSb
+#Scaling the Data
+BSbScale <- scale(BSb)
+
+# Finding the Best Number Of Clusters Comparing with Most of the methods
+NbClust(data = BSbScale,distance = "euclidean",min.nc = 2, max.nc = 15, method = "kmeans")
+
+# According to the majority rule, the best number of clusters is  2
+
+# Traditional Approches
+fviz_nbclust(BSbScale, kmeans, method = "wss")+labs(subtitle = "Elbow method")
+
+# 2,9 are the best cluster from 3 approches
+BSbK <- kmeans(BSbScale,centers = 2,nstart = 25)
+
+
+# Allow us to represent the cluster solution into 2 dimensions
+#'2D-Representation of the Cluster solution - Purchase Behavior')
+BSaK$size
+
+#dev.off()
+barplot(BSbK$centers,beside = TRUE,col = rainbow(2),cex.names = .7,las=2,
+        args.legend = list(x ='topright', bty='n'),legend.text = (1:nrow(BSbK$centers)))
+
+```
+
+c.The variables that describe both purchase behavior and basis of purchase
+```{r}
+BSc <- select(BathSoapDF,"No..of.Brands","Brand.Runs","Total.Volume","No..of..Trans","Value",
+              "Trans...Brand.Runs","Avg..Price",
+              "Pur.Vol.No.Promo....","Pur.Vol.Promo.6..","Pur.Vol.Other.Promo..","Brand_1_Other_2_Loyal","LoyalBrand_1_8",
+              "Pr.Cat.1","Pr.Cat.2","Pr.Cat.3","Pr.Cat.4",
+              "PropCat.5","PropCat.6","PropCat.7","PropCat.8","PropCat.9","PropCat.10",
+              "PropCat.11","PropCat.12","PropCat.13","PropCat.14","PropCat.15",
+              "Pur.Vol.No.Promo....","Pur.Vol.Promo.6..","Pur.Vol.Other.Promo..")
+
+#scaling the data set
+BScScale <- scale(BSc)
+
+NbClust(data = BScScale,distance = "euclidean",min.nc = 2, max.nc = 15, method = "kmeans")
+
+# According to the majority rule, the best number of clusters is  2
+
+# Traditional Approches
+fviz_nbclust(BScScale, kmeans, method = "wss")+labs(subtitle = "Elbow method")
+
+#2 is the best cluster from 3 approches
+BScK <- kmeans(BScScale,centers =2,nstart = 25)
+
+# Allow us to represent the cluster solution into 2 dimensions
+#clusplot(BScScale,BScK$cluster,lines = 0,labels = 2,shade = TRUE,color = TRUE,main = #'2D-Representation of the Cluster solution - Purchase Behavior')
+BScK$size
+
+#dev.off()
+barplot(BScK$centers,beside = TRUE,col = rainbow(2),cex.names = .7,las=2,
+        args.legend = list(x ='topright', bty='n'),legend.text = (1:nrow(BScK$centers)))
+```
+
+2.Select what you think is the best segmentation and comment on the characteristics (demographic,brand loyalty, and basis for purchase) of these clusters. 
+```{r}
+BS2 <- select(BathSoapDF,"Brand_1_Other_2_Loyal","LoyalBrand_1_8",
+              "Pr.Cat.1","Pr.Cat.2","Pr.Cat.3","Pr.Cat.4",
+              "PropCat.5","PropCat.6","PropCat.7","PropCat.8","PropCat.9","PropCat.10",
+              "PropCat.11","PropCat.12","PropCat.13","PropCat.14","PropCat.15",
+              "Pur.Vol.No.Promo....","Pur.Vol.Promo.6..","Pur.Vol.Other.Promo..",
+              "SEC","FEH","MT","SEX","EDU","HS","CS",
+              "Br..Cd..57..144","Br..Cd..55","Br..Cd..272","Br..Cd..286","Br..Cd..24","Br..Cd..481","Br..Cd..352","Br..Cd..5","Others.999")
+
+BS2Scale <- scale(BS2)
+NbClust(data = BS2Scale,distance = "euclidean",min.nc = 2, max.nc = 15, method = "kmeans")
+
+# According to the majority rule, the best number of clusters is  2
+
+# Traditional Approches
+fviz_nbclust(BS2Scale, kmeans, method = "wss")+labs(subtitle = "Elbow method")
+
+#2 is the best cluster from 3 approches
+BS2K <- kmeans(BS2Scale,centers =2,nstart = 25)
+
+# Allow us to represent the cluster solution into 2 dimensions
+BS2K$size
+
+#dev.off()
+barplot(BS2K$centers,beside = TRUE,col = rainbow(2),cex.names = .7,las=2,
+        args.legend = list(x ='topright', bty='n'),legend.text = (1:nrow(BS2K$centers)))
+
+
+```
+
+
+# Question 3 - Model that classifies the data into these segments.
+```{r}
+
+BS2$Cluster <- BS2K$cluster
+BS2K$size
+
+Mail <- BS2[BS2$Cluster==1,]
+
+#View(Mail) # Exclude these Members
+# Excluding these people as they are loyal so we need to exclude the 522 out of the total 600 entries.
+# So therefore on targeting direct-mail promotions for this market segment would succeed 
+```
+
