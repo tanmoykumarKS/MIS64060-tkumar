@@ -88,9 +88,11 @@ NbClust(data = BSaScale,distance = "euclidean",min.nc = 2, max.nc = 15, method =
 ```{r}
 # According to the majority rule, the best number of clusters is  2
 
-# Elbow method Approches
+# Elbow method Approache
 
 fviz_nbclust(BSaScale, kmeans, method = "wss")+labs(subtitle = "Elbow method")
+
+#lets check the results with 2 clusters
 
 BSaK <- kmeans(BSaScale,centers = 2,nstart = 25)
 
@@ -100,6 +102,17 @@ BSaK$size
 barplot(BSaK$centers,beside = TRUE,col = rainbow(2),cex.names = .7,las=2,
         args.legend = list(x ='topright', bty='n'),legend.text = (1:nrow(BSaK$centers)))
 
+#lets check the results with 3 clusters
+
+BSaK <- kmeans(BSaScale,centers = 3,nstart = 25)
+
+library(cluster) 
+BSaK$size
+
+barplot(BSaK$centers,beside = TRUE,col = rainbow(3),cex.names = .7,las=2,
+        args.legend = list(x ='topright', bty='n'),legend.text = (1:nrow(BSaK$centers)))
+
+# from the above two clustering results, it reflects that the best cluster count would be 2. Cluster-2 is loyal to the brands as the "No. of Brands" purchased is on lower side. It also reflects that the customers are not looking for promotions as they are loyal to the brands. Cluster-1 is not loyal to brands and frequently changes to different brands. 
 ```
 
 
@@ -134,7 +147,7 @@ BSaK$size
 #dev.off()
 barplot(BSbK$centers,beside = TRUE,col = rainbow(2),cex.names = .7,las=2,
         args.legend = list(x ='topright', bty='n'),legend.text = (1:nrow(BSbK$centers)))
-
+#from the bar plot its clear that the Cluster-2 customers purchases under the product proposition category 3 and 14.  
 ```
 
 c.The variables that describe both purchase behavior and basis of purchase
@@ -171,10 +184,8 @@ barplot(BScK$centers,beside = TRUE,col = rainbow(2),cex.names = .7,las=2,
 
 2.Select what you think is the best segmentation and comment on the characteristics (demographic,brand loyalty, and basis for purchase) of these clusters. 
 ```{r}
-BS2 <- select(BathSoapDF,"Brand_1_Other_2_Loyal","LoyalBrand_1_8",
-              "Pr.Cat.1","Pr.Cat.2","Pr.Cat.3","Pr.Cat.4",
-              "PropCat.5","PropCat.6","PropCat.7","PropCat.8","PropCat.9","PropCat.10",
-              "PropCat.11","PropCat.12","PropCat.13","PropCat.14","PropCat.15",
+BS2 <- select(BathSoapDF,"No..of.Brands","Brand.Runs","Total.Volume","No..of..Trans","Value",
+              "Trans...Brand.Runs","Avg..Price","Brand_1_Other_2_Loyal","LoyalBrand_1_8",
               "Pur.Vol.No.Promo....","Pur.Vol.Promo.6..","Pur.Vol.Other.Promo..",
               "SEC","FEH","MT","SEX","EDU","HS","CS",
               "Br..Cd..57..144","Br..Cd..55","Br..Cd..272","Br..Cd..286","Br..Cd..24","Br..Cd..481","Br..Cd..352","Br..Cd..5","Others.999")
@@ -182,12 +193,22 @@ BS2 <- select(BathSoapDF,"Brand_1_Other_2_Loyal","LoyalBrand_1_8",
 BS2Scale <- scale(BS2)
 NbClust(data = BS2Scale,distance = "euclidean",min.nc = 2, max.nc = 15, method = "kmeans")
 
-# According to the majority rule, the best number of clusters is  2
+# According to the majority rule, the best number of clusters is  3
 
 # Traditional Approches
 fviz_nbclust(BS2Scale, kmeans, method = "wss")+labs(subtitle = "Elbow method")
 
-#2 is the best cluster from 3 approches
+#Using 3 cluster size
+BS2K <- kmeans(BS2Scale,centers =3,nstart = 25)
+
+# Allow us to represent the cluster solution into 2 dimensions
+BS2K$size
+
+#dev.off()
+barplot(BS2K$centers,beside = TRUE,col = rainbow(3),cex.names = .7,las=2,
+        args.legend = list(x ='topright', bty='n'),legend.text = (1:nrow(BS2K$centers)))
+
+#USing 2 cluster size
 BS2K <- kmeans(BS2Scale,centers =2,nstart = 25)
 
 # Allow us to represent the cluster solution into 2 dimensions
@@ -196,7 +217,6 @@ BS2K$size
 #dev.off()
 barplot(BS2K$centers,beside = TRUE,col = rainbow(2),cex.names = .7,las=2,
         args.legend = list(x ='topright', bty='n'),legend.text = (1:nrow(BS2K$centers)))
-
 
 ```
 
@@ -209,8 +229,9 @@ BS2K$size
 
 Mail <- BS2[BS2$Cluster==1,]
 
-#View(Mail) # Exclude these Members
-# Excluding these people as they are loyal so we need to exclude the 522 out of the total 600 entries.
+head(Mail)
+
+# Excluding these people as they are loyal so we need to exclude the 68 out of the total 600 entries.
 # So therefore on targeting direct-mail promotions for this market segment would succeed 
 ```
 
